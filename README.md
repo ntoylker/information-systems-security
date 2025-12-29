@@ -2,7 +2,6 @@
 
 **Course:** Information Systems Security (Auth-ECE)  
 **Author:** Nikos Toulkeridis  
-**Student ID:** 10718  
 **Date:** December 2025  
 
 ## 📌 Project Overview
@@ -47,14 +46,6 @@ Per the assignment instructions, 5 specific security domains were addressed. Bel
     * **Files Modified:** `login.php` (and recommended for all session-start points).
 
 ---
-
-## 📂 Repository Structure
-
-* `src/` - The patched PHP source code (`login.php`, `dashboard.php`, etc.).
-* `reports/` - Contains the documentation:
-    * `ToulkeridisNikolaos10718.pdf` - Final detailed report with screenshots of "Before" and "After" states.
-    * `Instructions.pdf` - Original assignment requirements.
-* `xss_proof/` - Proof-of-concept scripts used to demonstrate the XSS vulnerability (`getcookie.php`, etc.).
 
 ## 🚀 Setup & Installation (Localhost)
 
